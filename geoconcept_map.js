@@ -1,8 +1,4 @@
-/* global ApplicationPrototype AndroidDevice Image $ logger OpenLayers GCUI
-  onTileLoadStart, onBaseLayerLoaded, onTileLoaded
-*/
-
-'use strict'
+/* global ApplicationPrototype AndroidDevice Image $ logger GCUI OpenLayers */
 window.LOG_INACTIVE = true
 
 window.onerror = function (err, a, b) {
@@ -29,7 +25,10 @@ Android.bind('device', function () {
 }, '')
 
 // Application Structure
+
 var App = new ApplicationPrototype()
+
+// used for drawing number on marker, to uncomment when implemented properly
 
 App.bind('Image', (function () {
   var app = new ApplicationPrototype()
@@ -101,6 +100,7 @@ App.bind('debug', function (status) {
 
 App.bind('log', function (type, data) {
   console.log(arguments)
+// this.trigger("showToast", { message : message })
 }, 'on')
 
 ;((function () {
@@ -139,7 +139,6 @@ App.bind('log', function (type, data) {
     return app.config().node
   })
   app.bind('init', function () {
-    /* eslint-disable */
     app.config().node = $('<div class="wv-logger">\
         <style type="text/css">\
           .wv-logger {\
@@ -241,7 +240,6 @@ App.bind('log', function (type, data) {
     var n = app.node()
     if (n) n.css('display', 'none')
   })
-
   app.bind('show', function () {
     var n = app.node()
     if (n) n.css('display', '')
@@ -268,7 +266,6 @@ App.bind('log', function (type, data) {
     return app.config().node
   })
   app.bind('init', function () {
-    /* eslint-disable */
     app.config().node = $('<div class="wv-progress">\
         <div class="wv-progress-bg"></div>\n\
         <div class="wv-progress-label">Hi!</div>\n\
@@ -340,10 +337,8 @@ App.bind('log', function (type, data) {
     switch (typeof (v)) {
       case 'boolean':
         app.label().style.display = (v ? '' : 'none')
-        break
       case 'string':
         app.label().innerHTML = v
-        break
       default:
         return app.node().querySelector('.wv-progress-label')
     }
@@ -352,15 +347,12 @@ App.bind('log', function (type, data) {
     switch (typeof (v)) {
       case 'boolean':
         app.button().style.display = (v ? '' : 'none')
-        break
       case 'string':
         app.button().innerHTML = v
-        break
       case 'object':
         if (v && typeof (v.eventName) === 'string') {
           app.button().setAttribute('attr-event-click', v.eventName)
         }
-        break
       default:
         return app.node().querySelector('.wv-progress-button')
     }
@@ -370,7 +362,6 @@ App.bind('log', function (type, data) {
     switch (typeof (v)) {
       case 'boolean':
         app.progress().style.display = (v ? '' : 'none')
-        break
       default:
         return app.node().querySelector('.wv-progress-bg')
     }
@@ -458,7 +449,6 @@ App.bind('log', function (type, data) {
         autoActivate: true
       })
       map.addControl(hoverCtrl)
-
       app.config().vectorLayer = vectorLayer
 
       app.bind('vectorLayer', function () {
@@ -472,7 +462,6 @@ App.bind('log', function (type, data) {
       }, '')
 
       // add layer markers
-      /* eslint-disable */
       var markers_before = new OpenLayers.Layer.Vector('Marker')
       app.config().markers_before = markers_before
       app.bind('markersLayer_before', function () {
@@ -480,7 +469,6 @@ App.bind('log', function (type, data) {
       }, '')
 
       // add layer markers
-      /* eslint-disable */
       var markers_after = new OpenLayers.Layer.Vector('Marker')
       app.config().markers_after = markers_after
       app.bind('markersLayer_after', function () {
@@ -496,8 +484,8 @@ App.bind('log', function (type, data) {
           App.log('log', 'On marker unselected')
         }
       })
-      /* eslint-disable */
-      var markersAfterHoverCtrl = new OpenLayers.Control.SelectFeature(vectorLayer, {
+
+      var markers_afterHoverCtrl = new OpenLayers.Control.SelectFeature(vectorLayer, {
         hover: false,
         autoActivate: true
       })
@@ -505,7 +493,7 @@ App.bind('log', function (type, data) {
       map.addLayer(markers_before)
       map.addLayer(lineLayer)
       map.addLayer(vectorLayer)
-      map.addLayer(marker_after)
+      map.addLayer(markers_after)
       hoverCtrl.activate()
       map.addControl(markers_afterHoverCtrl)
       markers_afterHoverCtrl.activate()
@@ -517,7 +505,6 @@ App.bind('log', function (type, data) {
 })(App))
 
 // define App.Map Methods
-
 App.Map().bind('getMarkersLayer', function (index) {
   if (typeof (index) !== 'string') {
     return App.Map().vectorLayer()
@@ -543,7 +530,6 @@ App.Map().bind('getMarkers', function (filter, index) {
       id: function () { return markerRaw.data.id },
       data: function () { return markerRaw.data.data || {} },
       raw: markerRaw,
-
       atPoint: function () { return markerRaw.atPoint.apply(markerRaw, arguments) },
       clone: function () { return markerRaw.clone.apply(markerRaw, arguments) },
       createMarker: function () { return markerRaw.createMarker.apply(markerRaw, arguments) },
@@ -559,17 +545,6 @@ App.Map().bind('getMarkers', function (filter, index) {
   })
 }, '')
 
-/**
- * Marker structure
- * {
-    "id": "string",
-    "iconUrl": "string",
-    "location": {
-      "latitude": 34.345345,
-      "longitude": 4.343534
-    }
-  }
- */
 App.Map().bind('addMarkers', function (markers, index) {
   markers.forEach(function (marker) {
     App.Map().getMarkers(marker.id, index).forEach(function (marker) {
@@ -668,12 +643,11 @@ App.Map().bind('updateMarkers', function (markers, index) {
   markers.forEach(function (marker) {
     App.Map().getMarkers(marker.id, index).forEach(function (markerInfo) {
       console.info(marker, markerInfo)
-      // debugger
       // location update
       if ('location' in marker) {
         var point = false
-        // var epsg4326 = new OpenLayers.Projection('EPSG:4326')
-        // var epsg900913 = new OpenLayers.Projection('EPSG:900913')
+        var epsg4326 = new OpenLayers.Projection('EPSG:4326')
+        var epsg900913 = new OpenLayers.Projection('EPSG:900913')
         if ('latitude' in marker.location && 'longitude' in marker.location) {
           if (marker.gps) {
             // transform coords from GPS to map projection
@@ -686,7 +660,6 @@ App.Map().bind('updateMarkers', function (markers, index) {
             point = new OpenLayers.Geometry.Point(marker.location.latitude, marker.location.longitude)
           }
         }
-
         if (point) {
           markerInfo.move(point)
         }
@@ -709,7 +682,6 @@ App.Map().bind('addLines', function (coords, style) {
     var initialPoints = coords.map(function (coord) {
       return new OpenLayers.Geometry.Point(coord.latitude, coord.longitude)
     })
-
     // in case there is connection, try drawing route, if not, draw plain lines
     if (AndroidDevice.isOnline()) {
       // draw route
@@ -760,7 +732,8 @@ App.Map().bind('addLines', function (coords, style) {
         format: 'EXTENDED',
         version: '/v2'
       })
-    } else {
+    } else { // no connection
+      // draw simple lines
       drawLine(initialPoints, style)
     }
   }
@@ -834,6 +807,7 @@ App.Map().bind('setZoomFit', function () {
 })
 
 // Attaching events
+
 App.Map().on('load', function () {
   Android.trigger('MapLoaded')
 })
@@ -903,6 +877,21 @@ Android.on('MapRemoveLines', function () {
   App.Map().removeLines()
 })
 
+var vectorLayer
+var markers
+
+function setZoomLevel (zoomLevel) {
+  var map = GCUI.getMap('map')
+  map.zoomTo(zoomLevel)
+}
+
+function getZoomLevel () {
+  var map = GCUI.getMap('map')
+  var zoomLevel = map.getZoom()
+
+  return zoomLevel
+}
+
 OpenLayers.Control.Click = OpenLayers.Class(OpenLayers.Control, {
   defaultHandlerOptions: {
     'single': true,
@@ -918,6 +907,7 @@ OpenLayers.Control.Click = OpenLayers.Class(OpenLayers.Control, {
     OpenLayers.Control.prototype.initialize.apply(this,
       arguments)
     this.handler = new OpenLayers.Handler.Click(this, {
+      // 'dblclick' : this.trigger,
       'click': this.trigger
     }, this.handlerOptions)
   },
