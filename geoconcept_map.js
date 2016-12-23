@@ -1,6 +1,5 @@
 /* global ApplicationPrototype AndroidDevice Image $ logger GCUI OpenLayers */
 window.LOG_INACTIVE = true
-window.markers = []
 
 window.onerror = function (err, a, b) {
   if (typeof (App) === 'object') {
@@ -26,9 +25,11 @@ Android.bind('device', function () {
 }, '')
 
 // Application Structure
+
 var App = new ApplicationPrototype()
 
 // used for drawing number on marker, to uncomment when implemented properly
+
 App.bind('Image', (function () {
   var app = new ApplicationPrototype()
   var ratioSize = 4
@@ -554,25 +555,25 @@ App.Map().bind('getMarkers', function (filter, index) {
   })
 }, '')
 
-function createPoint (latitude, longitude, isGPS) {
+function createPoint (lat, lng, isGPS) {
   var point
   if (isGPS) {
     // transform coords from GPS to map projection
-    var lonlat = new OpenLayers.LonLat(longitude, latitude).transform(
+    var lonlat = new OpenLayers.LonLat(lng, lat).transform(
       new OpenLayers.Projection('EPSG:4326'),
       new OpenLayers.Projection('EPSG:27572')
     )
     point = new OpenLayers.Geometry.Point(lonlat.lon, lonlat.lat)
   } else {
-    point = new OpenLayers.Geometry.Point(latitude, longitude)
+    point = new OpenLayers.Geometry.Point(lat, lng)
   }
 
   return point
 }
 
 function createFeature (marker) {
-  var point = createPoint(marker.location.longitude, marker.location.latitude, marker.gps)
-  return new OpenLayers.Feature.Vector(
+  var point = createPoint(marker.location.latitude, marker.location.longitude, marker.gps)
+  var feature = new OpenLayers.Feature.Vector(
     point,
     {
       id: marker.id,
@@ -585,20 +586,18 @@ function createFeature (marker) {
       graphicYOffset: marker.iconYOffset || undefined
     }
   )
+  return feature
 }
 
 App.Map().bind('addMarkers', function (markers, index) {
   window.markers = markers
-
   markers.forEach(function (marker) {
     App.Map().getMarkers(marker.id, index).forEach(function (marker) {
       marker.destroy()
     })
   })
-
   markers.forEach(function (marker) {
     App.log('info', 'Add marker path: ', marker)
-
     var feature = createFeature(marker)
     App.Map().getMarkersLayer(index).addFeatures(feature)
 
@@ -656,39 +655,6 @@ App.Map().bind('removeMyLocationMarker', function () {
 App.Map().bind('updateMyLocationMarker', function (marker) {
   marker.id = 'location-marker'
   App.Map().updateMarkers([marker], '_before')
-})
-
-App.Map().bind('updateMarkers', function (markers, index) {
-  markers.forEach(function (marker) {
-    App.Map().getMarkers(marker.id, index).forEach(function (markerInfo) {
-      console.info(marker, markerInfo)
-      // location update
-      if ('location' in marker) {
-        var point = false
-        var epsg4326 = new OpenLayers.Projection('EPSG:4326')
-        var epsg900913 = new OpenLayers.Projection('EPSG:900913')
-        if ('latitude' in marker.location && 'longitude' in marker.location) {
-          if (marker.gps) {
-            // transform coords from GPS to map projection
-            var lonlat = new OpenLayers.LonLat(marker.location.longitude, marker.location.latitude).transform(
-              new OpenLayers.Projection('EPSG:4326'),
-              new OpenLayers.Projection('EPSG:27572')
-            )
-            point = new OpenLayers.Geometry.Point(lonlat.lon, lonlat.lat)
-          } else {
-            point = new OpenLayers.Geometry.Point(marker.location.latitude, marker.location.longitude)
-          }
-        }
-        if (point) {
-          markerInfo.move(point)
-        }
-      }
-      // data update
-      if (typeof (marker.data) === 'object' && marker.data) {
-        $.extend(markerInfo.data(), marker.data)
-      }
-    })
-  })
 })
 
 App.Map().bind('getLinesRaw', function () {
@@ -895,21 +861,6 @@ Android.on('MapAddLines', function (config) {
 Android.on('MapRemoveLines', function () {
   App.Map().removeLines()
 })
-
-var vectorLayer
-var markers
-
-function setZoomLevel (zoomLevel) {
-  var map = GCUI.getMap('map')
-  map.zoomTo(zoomLevel)
-}
-
-function getZoomLevel () {
-  var map = GCUI.getMap('map')
-  var zoomLevel = map.getZoom()
-
-  return zoomLevel
-}
 
 OpenLayers.Control.Click = OpenLayers.Class(OpenLayers.Control, {
   defaultHandlerOptions: {
