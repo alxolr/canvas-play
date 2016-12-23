@@ -1,4 +1,4 @@
-/* global ApplicationPrototype AndroidDevice Image $ logger GCUI OpenLayers */
+/* global ApplicationPrototype AndroidDevice Image $ logger GCUI OpenLayers atob*/
 window.LOG_INACTIVE = true
 
 window.onerror = function (err, a, b) {
@@ -391,6 +391,21 @@ App.bind('log', function (type, data) {
   }, '')
 })(App))
 
+function resizeImage (url, width, height, cb) {
+  var img = new Image()
+
+  img.onload = function () {
+    var canvas = document.createElement('canvas')
+    canvas.height = height
+    canvas.width = width
+    var ctx = canvas.getContext('2d')
+    ctx.drawImage(img, 0, 0, width, height)
+    cb(null, canvas.toDataURL())
+  }
+
+  img.src = url
+}
+
 /**
  * defining Map
  */
@@ -444,10 +459,31 @@ App.bind('log', function (type, data) {
       vectorLayer.events.on({
         featureselected: function (evt) {
           var feature = evt.feature
+          var ratio = 1.5
+          var height = feature.style.graphicHeight * ratio
+          var width = feature.style.graphicWidth * ratio
+          resizeImage(feature.style.externalGraphic, height, width, function (err, img) {
+            if (err) throw new Error(err)
+            feature.style.externalGraphic = img
+            feature.style.graphicHeight = height
+            feature.style.graphicWidth = width
+            App.Map().getMarkersLayer().redraw()
+          })
           App.log('log', 'On marker selected: ' + feature.attributes.id)
           Android.trigger('OnMarkerSelected', feature.attributes)
         },
-        featureunselected: function (e) {
+        featureunselected: function (evt) {
+          var feature = evt.feature
+          var ratio = 2 / 3
+          var height = feature.style.graphicHeight * ratio
+          var width = feature.style.graphicWidth * ratio
+          resizeImage(feature.style.externalGraphic, height, width, function (err, img) {
+            if (err) throw new Error(err)
+            feature.style.externalGraphic = img
+            feature.style.graphicHeight = height
+            feature.style.graphicWidth = width
+            App.Map().getMarkersLayer().redraw()
+          })
           App.log('log', 'On marker unselected')
         }
       })
