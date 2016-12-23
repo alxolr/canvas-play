@@ -1,5 +1,6 @@
 /* global ApplicationPrototype AndroidDevice Image $ logger GCUI OpenLayers */
 window.LOG_INACTIVE = true
+window.markers = []
 
 window.onerror = function (err, a, b) {
   if (typeof (App) === 'object') {
@@ -25,30 +26,32 @@ Android.bind('device', function () {
 }, '')
 
 // Application Structure
-
 var App = new ApplicationPrototype()
 
 // used for drawing number on marker, to uncomment when implemented properly
-
 App.bind('Image', (function () {
   var app = new ApplicationPrototype()
+  var ratioSize = 4
   app.bind('URL2Canvas', function (url, size, cb) {
     var canvas = document.createElement('canvas')
-    var ratioSize = 4
     document.body.appendChild(canvas)
+
     var ctx = canvas.getContext('2d')
     ctx.mozImageSmoothingEnabled = true
     ctx.webkitImageSmoothingEnabled = true
     ctx.msImageSmoothingEnabled = true
     ctx.imageSmoothingEnabled = true
+
     var img = new Image()
     var isize = size * ratioSize
+
     img.width = isize
     img.height = isize
     canvas.width = isize
     canvas.height = isize
+
     img.onload = function () {
-      ctx.drawImage(img, 0, 0, isize, isize) // Or at whatever offset you like
+      ctx.drawImage(img, 0, 0, isize, isize)
       cb(canvas)
       document.body.removeChild(canvas)
     }
@@ -57,9 +60,13 @@ App.bind('Image', (function () {
 
   app.bind('CanvasText', function (canvas, text) {
     var context = canvas.getContext('2d')
-    var ratioSize = 4
-    var x = canvas.width - 7 * ratioSize
-    var y = 11 * ratioSize
+    var radius = 7 * ratioSize
+    var width = canvas.width
+    var height = canvas.height
+    var arcX = width / 2
+    var arcY = height / 2
+    var x = arcX
+    var y = arcY + radius / 2
 
     context.mozImageSmoothingEnabled = true
     context.webkitImageSmoothingEnabled = true
@@ -69,7 +76,7 @@ App.bind('Image', (function () {
     context.beginPath()
     context.strokeColor = 'black'
     context.strokeSize = '2px'
-    context.arc(canvas.width - 7 * ratioSize, 7 * ratioSize, 7 * ratioSize, 0, 2 * Math.PI, 0)
+    context.arc(arcX, arcY, radius, 0, 2 * Math.PI, 0)
     context.fill()
 
     context.font = (11 * ratioSize) + 'px tahoma'
@@ -477,6 +484,8 @@ App.bind('log', function (type, data) {
       markers_after.events.on({
         featureselected: function (evt) {
           var feature = evt.feature
+          var id = feature.attributes.id
+          var selectedMarker = App.Map().getMarkers().forEach(marker => marker.id() === id)[0]
           App.log('log', 'On marker selected: ' + feature.attributes.id)
           Android.trigger('OnMarkerSelected', feature.attributes)
         },
@@ -545,43 +554,53 @@ App.Map().bind('getMarkers', function (filter, index) {
   })
 }, '')
 
+function createPoint (latitude, longitude, isGPS) {
+  var point
+  if (isGPS) {
+    // transform coords from GPS to map projection
+    var lonlat = new OpenLayers.LonLat(longitude, latitude).transform(
+      new OpenLayers.Projection('EPSG:4326'),
+      new OpenLayers.Projection('EPSG:27572')
+    )
+    point = new OpenLayers.Geometry.Point(lonlat.lon, lonlat.lat)
+  } else {
+    point = new OpenLayers.Geometry.Point(latitude, longitude)
+  }
+
+  return point
+}
+
+function createFeature (marker) {
+  var point = createPoint(marker.location.longitude, marker.location.latitude, marker.gps)
+  return new OpenLayers.Feature.Vector(
+    point,
+    {
+      id: marker.id,
+      data: marker.data || {}
+    }, {
+      externalGraphic: marker.iconUrl,
+      graphicWidth: marker.iconSize || 32,
+      graphicHeight: marker.iconSize || 32,
+      graphicXOffset: marker.iconXOffset || undefined,
+      graphicYOffset: marker.iconYOffset || undefined
+    }
+  )
+}
+
 App.Map().bind('addMarkers', function (markers, index) {
+  window.markers = markers
+
   markers.forEach(function (marker) {
     App.Map().getMarkers(marker.id, index).forEach(function (marker) {
       marker.destroy()
     })
   })
+
   markers.forEach(function (marker) {
     App.log('info', 'Add marker path: ', marker)
-    var point
 
-    if (marker.gps) {
-      // transform coords from GPS to map projection
-      var lonlat = new OpenLayers.LonLat(marker.location.longitude, marker.location.latitude).transform(
-        new OpenLayers.Projection('EPSG:4326'),
-        new OpenLayers.Projection('EPSG:27572')
-      )
-      point = new OpenLayers.Geometry.Point(lonlat.lon, lonlat.lat)
-    } else {
-      point = new OpenLayers.Geometry.Point(marker.location.latitude, marker.location.longitude)
-    }
-
-    var feature = new OpenLayers.Feature.Vector(
-      point,
-      {
-        id: marker.id,
-        data: marker.data || {}
-      }, {
-        externalGraphic: marker.iconUrl,
-        graphicWidth: marker.iconSize || 32,
-        graphicHeight: marker.iconSize || 32,
-        graphicXOffset: marker.iconXOffset || undefined,
-        graphicYOffset: marker.iconYOffset || undefined
-      }
-    )
+    var feature = createFeature(marker)
     App.Map().getMarkersLayer(index).addFeatures(feature)
-
-    // used for drawing number on marker, to uncomment when implemented properly
 
     if (marker.iconText && marker.iconUrl) {
       App.Image().URL2Canvas(marker.iconUrl, (marker.iconSize || 32), function (canvas) {
