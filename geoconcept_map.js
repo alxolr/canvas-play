@@ -1,5 +1,8 @@
-/* global ApplicationPrototype AndroidDevice Image $ logger GCUI OpenLayers atob*/
+/* global ApplicationPrototype AndroidDevice Image $ logger GCUI OpenLayers */
+
 window.LOG_INACTIVE = true
+const SELECTED_FEATURE_COLOR = '#000000'
+const UNSELECTED_FEATURE_COLOR = '#000000'
 
 window.onerror = function (err, a, b) {
   if (typeof (App) === 'object') {
@@ -30,13 +33,33 @@ var App = new ApplicationPrototype()
 
 // used for drawing number on marker, to uncomment when implemented properly
 
+function createIcon (size, color, cb) {
+  var canvas = document.createElement('canvas')
+  var arc = size / 2
+  var ctx = canvas.getContext('2d')
+  ctx.mozImageSmoothingEnabled = true
+  ctx.webkitImageSmoothingEnabled = true
+  ctx.msImageSmoothingEnabled = true
+  ctx.imageSmoothingEnabled = true
+  canvas.width = size
+  canvas.height = size
+  ctx.beginPath()
+  ctx.arc(arc, arc, arc, 0, Math.PI * 2, false)
+  ctx.fillStyle = '#ffffff'
+  ctx.fill()
+  ctx.arc(arc, arc, arc * 0.75, 0, Math.PI * 2, true)
+  ctx.closePath()
+  ctx.fillStyle = color
+  ctx.fill()
+  cb(null, canvas)
+}
+
 App.bind('Image', (function () {
   var app = new ApplicationPrototype()
-  var ratioSize = 4
   app.bind('URL2Canvas', function (url, size, cb) {
     var canvas = document.createElement('canvas')
     document.body.appendChild(canvas)
-
+    var ratioSize = 4
     var ctx = canvas.getContext('2d')
     ctx.mozImageSmoothingEnabled = true
     ctx.webkitImageSmoothingEnabled = true
@@ -59,7 +82,7 @@ App.bind('Image', (function () {
     img.src = url
   })
 
-  app.bind('CanvasText', function (canvas, text) {
+  app.bind('CanvasText', function (canvas, text, ratioSize) {
     var context = canvas.getContext('2d')
     var radius = 7 * ratioSize
     var width = canvas.width
@@ -391,19 +414,14 @@ App.bind('log', function (type, data) {
   }, '')
 })(App))
 
-function resizeImage (url, width, height, cb) {
-  var img = new Image()
+function getMarkerIndex (id) {
+  var markers = App.Map().getMarkers()
 
-  img.onload = function () {
-    var canvas = document.createElement('canvas')
-    canvas.height = height
-    canvas.width = width
-    var ctx = canvas.getContext('2d')
-    ctx.drawImage(img, 0, 0, width, height)
-    cb(null, canvas.toDataURL())
+  for (var i = 0; i < markers.length; i++) {
+    if (markers[i].id() === id) return i
   }
 
-  img.src = url
+  return 0
 }
 
 /**
@@ -459,30 +477,36 @@ function resizeImage (url, width, height, cb) {
       vectorLayer.events.on({
         featureselected: function (evt) {
           var feature = evt.feature
-          var ratio = 1.5
-          var height = feature.style.graphicHeight * ratio
-          var width = feature.style.graphicWidth * ratio
-          resizeImage(feature.style.externalGraphic, height, width, function (err, img) {
-            if (err) throw new Error(err)
-            feature.style.externalGraphic = img
-            feature.style.graphicHeight = height
-            feature.style.graphicWidth = width
-            App.Map().getMarkersLayer().redraw()
+          var text = getMarkerIndex(feature.attributes.id)
+          var initialSize = feature.style.graphicWidth
+          var size = initialSize * 1.5
+          feature.style.graphicWidth = size
+          feature.style.graphicHeight = size
+          createIcon(200, SELECTED_FEATURE_COLOR, (err, cvs) => {
+            if (err) handleError(err)
+            App.Image().URL2Canvas(cvs.toDataURL(), size, function (canvas) {
+              App.Image().CanvasText(canvas, text, 6)
+              feature.style.externalGraphic = canvas.toDataURL()
+              App.Map().getMarkersLayer().redraw()
+            })
           })
           App.log('log', 'On marker selected: ' + feature.attributes.id)
           Android.trigger('OnMarkerSelected', feature.attributes)
         },
         featureunselected: function (evt) {
           var feature = evt.feature
-          var ratio = 2 / 3
-          var height = feature.style.graphicHeight * ratio
-          var width = feature.style.graphicWidth * ratio
-          resizeImage(feature.style.externalGraphic, height, width, function (err, img) {
-            if (err) throw new Error(err)
-            feature.style.externalGraphic = img
-            feature.style.graphicHeight = height
-            feature.style.graphicWidth = width
-            App.Map().getMarkersLayer().redraw()
+          var text = getMarkerIndex(feature.attributes.id)
+          var initialSize = feature.style.graphicWidth
+          var size = initialSize * 2 / 3
+          feature.style.graphicWidth = size
+          feature.style.graphicHeight = size
+          createIcon(200, UNSELECTED_FEATURE_COLOR, (err, cvs) => {
+            if (err) handleError(err)
+            App.Image().URL2Canvas(cvs.toDataURL(), size, function (canvas) {
+              App.Image().CanvasText(canvas, text, 4)
+              feature.style.externalGraphic = canvas.toDataURL()
+              App.Map().getMarkersLayer().redraw()
+            })
           })
           App.log('log', 'On marker unselected')
         }
@@ -521,8 +545,6 @@ function resizeImage (url, width, height, cb) {
       markers_after.events.on({
         featureselected: function (evt) {
           var feature = evt.feature
-          var id = feature.attributes.id
-          var selectedMarker = App.Map().getMarkers().forEach(marker => marker.id() === id)[0]
           App.log('log', 'On marker selected: ' + feature.attributes.id)
           Android.trigger('OnMarkerSelected', feature.attributes)
         },
@@ -626,7 +648,6 @@ function createFeature (marker) {
 }
 
 App.Map().bind('addMarkers', function (markers, index) {
-  window.markers = markers
   markers.forEach(function (marker) {
     App.Map().getMarkers(marker.id, index).forEach(function (marker) {
       marker.destroy()
@@ -639,7 +660,7 @@ App.Map().bind('addMarkers', function (markers, index) {
 
     if (marker.iconText && marker.iconUrl) {
       App.Image().URL2Canvas(marker.iconUrl, (marker.iconSize || 32), function (canvas) {
-        App.Image().CanvasText(canvas, marker.iconText)
+        App.Image().CanvasText(canvas, marker.iconText, 4)
         feature.style.externalGraphic = canvas.toDataURL()
         App.Map().getMarkersLayer(index).redraw()
       })
@@ -778,6 +799,10 @@ function extractRoutePoints (route) {
   }
 
   return points
+}
+
+function handleError (err) {
+  console.log(err)
 }
 
 function drawLine (points, style) {
