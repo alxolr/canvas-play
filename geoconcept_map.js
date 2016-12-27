@@ -466,14 +466,15 @@ function getMarkerIndex (id) {
       vectorLayer.events.on({
         featureselected: function (evt) {
           var feature = evt.feature
+          var options = clone(featureOptions)
           var text = getMarkerIndex(feature.attributes.id)
           var initialSize = feature.style.graphicWidth
           var size = initialSize * 1.5
           feature.style.graphicWidth = size
           feature.style.graphicHeight = size
-          featureOptions.group.count = 3
-          featureOptions.index.count = text
-          generateFeatureIcon(featureOptions)
+          options.group.count = 3
+          options.index.count = text
+          generateFeatureIcon(options)
             .then((canvas) => {
               feature.style.externalGraphic = canvas.toDataURL()
               App.Map().getMarkersLayer().redraw()
@@ -481,16 +482,18 @@ function getMarkerIndex (id) {
           App.log('log', 'On marker selected: ' + feature.attributes.id)
           Android.trigger('OnMarkerSelected', feature.attributes)
         },
+
         featureunselected: function (evt) {
           var feature = evt.feature
           var text = getMarkerIndex(feature.attributes.id)
+          var options = clone(featureOptions)
           var initialSize = feature.style.graphicWidth
           var size = initialSize * 2 / 3
           feature.style.graphicWidth = size
           feature.style.graphicHeight = size
-          featureOptions.group.count = 1
-          featureOptions.index.count = text
-          generateFeatureIcon(featureOptions)
+          options.group.count = 1
+          options.index.count = text
+          generateFeatureIcon(options)
             .then((canvas) => {
               feature.style.externalGraphic = canvas.toDataURL()
               App.Map().getMarkersLayer().redraw()
@@ -647,8 +650,9 @@ App.Map().bind('addMarkers', function (markers, index) {
     App.Map().getMarkersLayer(index).addFeatures(feature)
 
     if (marker.iconText && marker.iconUrl) {
-      featureOptions.iconUrl = marker.iconUrl
-      featureOptions.index.count = marker.iconText
+      var options = clone(featureOptions)
+      options.iconUrl = marker.iconUrl
+      options.index.count = marker.iconText
       generateFeatureIcon(featureOptions)
         .then((canvas) => {
           feature.style.externalGraphic = canvas.toDataURL()
@@ -790,6 +794,7 @@ function extractRoutePoints (route) {
 
   return points
 }
+
 /**
  * Generate the icon
  *
@@ -814,7 +819,7 @@ function extractRoutePoints (route) {
  */
 function generateFeatureIcon (options) {
   return new Promise((resolve, reject) => {
-    drawDonut(options.donut)
+    createCanvas()
       .then(canvas => insertIcon(canvas, options.iconUrl, options.group))
       .then(canvas => drawGroupSize(canvas, options.group, options.scale))
       .then(canvas => drawIndex(canvas, options.index, options.scale))
@@ -822,7 +827,6 @@ function generateFeatureIcon (options) {
       .catch(err => reject(err))
   })
 }
-
 
 /**
  * @param {Object} canvas
@@ -847,11 +851,12 @@ function insertIcon (canvas, url, group) {
   })
 }
 
-function drawDonut (donut) {
+function createCanvas (donut) {
   return new Promise((resolve, reject) => {
     var canvas = document.createElement('canvas')
     canvas.width = 128
     canvas.height = 128
+
     resolve(canvas)
   })
 }
@@ -906,6 +911,11 @@ function drawIndex (canvas, index, ratioSize) {
     resolve(canvas)
   })
 }
+
+function clone (object) {
+  return JSON.parse(JSON.stringify(object))
+}
+
 
 function drawLine (points, style) {
   var line = new OpenLayers.Feature.Vector(
