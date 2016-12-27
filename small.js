@@ -5,10 +5,6 @@
  *
  * {
  * iconUrl: 'sun.rays.small.png',
- * donut: {
- *   size: 256,
- *   color: 'black'
- * },
  * group: {
  *   count: 3,
  *   color: 'black',
@@ -22,11 +18,11 @@
  * scale: 8
 }
  *
- * @returns
+ * @returns {Promise}
  */
 function generateFeatureIcon (options) {
   return new Promise((resolve, reject) => {
-    drawDonut(options.donut)
+    createCanvas()
       .then(canvas => insertIcon(canvas, options.iconUrl, options.group))
       .then(canvas => drawGroupSize(canvas, options.group, options.scale))
       .then(canvas => drawIndex(canvas, options.index, options.scale))
@@ -35,14 +31,21 @@ function generateFeatureIcon (options) {
   })
 }
 
+/**
+ * @param {Object} canvas
+ * @param {String} url
+ * @param {Object} group
+ *
+ * @returns {Promise}
+ */
 function insertIcon (canvas, url, group) {
   return new Promise((resolve, reject) => {
-    if ((group.count <= 1) && (url !== null)) {
+    if ((url !== null)) {
       let context = canvas.getContext('2d')
       let img = document.createElement('img')
       img.src = url
       img.onload = function () {
-        context.drawImage(img, 48, 48, 160, 160)
+        context.drawImage(img, 0, 0, 128, 128)
         resolve(canvas)
       }
     } else {
@@ -51,25 +54,12 @@ function insertIcon (canvas, url, group) {
   })
 }
 
-function drawDonut (donut) {
+function createCanvas (donut) {
   return new Promise((resolve, reject) => {
     var canvas = document.createElement('canvas')
-    var arc = donut.size / 2
-    var ctx = canvas.getContext('2d')
-    ctx.mozImageSmoothingEnabled = true
-    ctx.webkitImageSmoothingEnabled = true
-    ctx.msImageSmoothingEnabled = true
-    ctx.imageSmoothingEnabled = true
-    canvas.width = donut.size
-    canvas.height = donut.size
-    ctx.beginPath()
-    ctx.arc(arc, arc, arc, 0, Math.PI * 2, false)
-    ctx.fillStyle = '#ffffff'
-    ctx.fill()
-    ctx.arc(arc, arc, arc * 0.75, 0, Math.PI * 2, true)
-    ctx.closePath()
-    ctx.fillStyle = donut.color
-    ctx.fill()
+    canvas.width = 128
+    canvas.height = 128
+
     resolve(canvas)
   })
 }
@@ -79,10 +69,8 @@ function drawGroupSize (canvas, group, scale) {
     if (group.count > 1) {
       var context = canvas.getContext('2d')
       var radius = 7 * scale
-      var width = canvas.width
-      var height = canvas.height
-      var arcX = width / 2
-      var arcY = height / 2
+      var arcX = canvas.width / 2
+      var arcY = canvas.height / 2
       var x = arcX
       var y = arcY + radius / 2
       context.fillStyle = group.color
@@ -127,14 +115,16 @@ function drawIndex (canvas, index, ratioSize) {
   })
 }
 
-let featureOptions = {
-  iconUrl: 'sun.rays.small.png',
-  donut: {
-    size: 256,
-    color: 'black'
-  },
+function clone (object) {
+  return JSON.parse(JSON.stringify(object))
+}
+
+var configs = [1, 2, 3, 4, 5, 6, 4, 3, 4]
+
+var featureOptions = {
+  iconUrl: 'ic_int_planned_32dp.png',
   group: {
-    count: 3,
+    count: 0,
     color: 'black',
     textColor: 'white'
   },
@@ -143,18 +133,23 @@ let featureOptions = {
     color: 'black',
     textColor: 'white'
   },
-  scale: 8
+  scale: 4
 }
 
-generateFeatureIcon(featureOptions).then(canvas => {
-  var img = document.createElement('img')
-  img.src = canvas.toDataURL()
-
-  var second = document.createElement('img')
-  second.src = img.src
-  second.width = 128
-
-  document.body.appendChild(img)
-  document.body.appendChild(second)
-  document.body.style = 'background: gray'
+configs.forEach((config, index) => {
+  var options = clone(featureOptions)
+  options.group.count = config
+  options.index.count = index
+  generateFeatureIcon(options)
+    .then(canvas => {
+      var ctx = canvas.getContext('2d')
+      var img = new Image()
+      img.onload = function () {
+        ctx.drawImage(canvas, 0, 0)
+      }
+      img.src = canvas.toDataURL()
+      document.body.appendChild(img)
+      document.body.style = 'background: gray'
+    })
+    .catch(err => console.error(err))
 })

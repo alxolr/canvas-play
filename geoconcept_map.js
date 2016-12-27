@@ -2,13 +2,9 @@
 
 window.LOG_INACTIVE = true
 var featureOptions = {
-  iconUrl: null,
-  donut: {
-    size: 256,
-    color: 'black'
-  },
+  iconUrl: 'map_marker_icons/ic_int_planned_32dp.png',
   group: {
-    count: 3,
+    count: 0,
     color: 'black',
     textColor: 'white'
   },
@@ -17,7 +13,7 @@ var featureOptions = {
     color: 'black',
     textColor: 'white'
   },
-  scale: 8
+  scale: 4
 }
 
 window.onerror = function (err, a, b) {
@@ -475,8 +471,7 @@ function getMarkerIndex (id) {
           var size = initialSize * 1.5
           feature.style.graphicWidth = size
           feature.style.graphicHeight = size
-          featureOptions.iconUrl = null
-          featureOptions.group.count = text
+          featureOptions.group.count = 3
           featureOptions.index.count = text
           generateFeatureIcon(featureOptions)
             .then((canvas) => {
@@ -493,7 +488,7 @@ function getMarkerIndex (id) {
           var size = initialSize * 2 / 3
           feature.style.graphicWidth = size
           feature.style.graphicHeight = size
-          featureOptions.group.count = text
+          featureOptions.group.count = 1
           featureOptions.index.count = text
           generateFeatureIcon(featureOptions)
             .then((canvas) => {
@@ -640,6 +635,7 @@ function createFeature (marker) {
 }
 
 App.Map().bind('addMarkers', function (markers, index) {
+  console.log('Markers', 'index', markers, index)
   markers.forEach(function (marker) {
     App.Map().getMarkers(marker.id, index).forEach(function (marker) {
       marker.destroy()
@@ -651,11 +647,13 @@ App.Map().bind('addMarkers', function (markers, index) {
     App.Map().getMarkersLayer(index).addFeatures(feature)
 
     if (marker.iconText && marker.iconUrl) {
-      App.Image().URL2Canvas(marker.iconUrl, (marker.iconSize || 32), function (canvas) {
-        App.Image().CanvasText(canvas, marker.iconText, 4)
-        feature.style.externalGraphic = canvas.toDataURL()
-        App.Map().getMarkersLayer(index).redraw()
-      })
+      featureOptions.iconUrl = marker.iconUrl
+      featureOptions.index.count = marker.iconText
+      generateFeatureIcon(featureOptions)
+        .then((canvas) => {
+          feature.style.externalGraphic = canvas.toDataURL()
+          App.Map().getMarkersLayer(index).redraw()
+        })
     }
   })
 })
@@ -792,7 +790,6 @@ function extractRoutePoints (route) {
 
   return points
 }
-
 /**
  * Generate the icon
  *
@@ -800,10 +797,6 @@ function extractRoutePoints (route) {
  *
  * {
  * iconUrl: 'sun.rays.small.png',
- * donut: {
- *   size: 256,
- *   color: 'black'
- * },
  * group: {
  *   count: 3,
  *   color: 'black',
@@ -840,12 +833,12 @@ function generateFeatureIcon (options) {
  */
 function insertIcon (canvas, url, group) {
   return new Promise((resolve, reject) => {
-    if ((group.count <= 1) && (url !== null)) {
+    if ((url !== null)) {
       let context = canvas.getContext('2d')
       let img = document.createElement('img')
       img.src = url
       img.onload = function () {
-        context.drawImage(img, 48, 48, 160, 160)
+        context.drawImage(img, 0, 0, 128, 128)
         resolve(canvas)
       }
     } else {
@@ -857,22 +850,8 @@ function insertIcon (canvas, url, group) {
 function drawDonut (donut) {
   return new Promise((resolve, reject) => {
     var canvas = document.createElement('canvas')
-    var arc = donut.size / 2
-    var ctx = canvas.getContext('2d')
-    ctx.mozImageSmoothingEnabled = true
-    ctx.webkitImageSmoothingEnabled = true
-    ctx.msImageSmoothingEnabled = true
-    ctx.imageSmoothingEnabled = true
-    canvas.width = donut.size
-    canvas.height = donut.size
-    ctx.beginPath()
-    ctx.arc(arc, arc, arc, 0, Math.PI * 2, false)
-    ctx.fillStyle = '#ffffff'
-    ctx.fill()
-    ctx.arc(arc, arc, arc * 0.75, 0, Math.PI * 2, true)
-    ctx.closePath()
-    ctx.fillStyle = donut.color
-    ctx.fill()
+    canvas.width = 128
+    canvas.height = 128
     resolve(canvas)
   })
 }
@@ -882,10 +861,8 @@ function drawGroupSize (canvas, group, scale) {
     if (group.count > 1) {
       var context = canvas.getContext('2d')
       var radius = 7 * scale
-      var width = canvas.width
-      var height = canvas.height
-      var arcX = width / 2
-      var arcY = height / 2
+      var arcX = canvas.width / 2
+      var arcY = canvas.height / 2
       var x = arcX
       var y = arcY + radius / 2
       context.fillStyle = group.color
