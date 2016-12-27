@@ -1,12 +1,28 @@
 /**
+ * Generate the icon
+ *
  * @param {Object} options
+ *
  * {
- *  url: String,
- *  groupSize: Number,
- *  indexNumber: Number,
- *  scale: Number,
- *  color: String
- * }
+ * iconUrl: 'sun.rays.small.png',
+ * donut: {
+ *   size: 256,
+ *   color: 'black'
+ * },
+ * group: {
+ *   count: 3,
+ *   color: 'black',
+ *   textColor: 'white'
+ * },
+ * index: {
+ *   count: 1,
+ *   color: 'black',
+ *   textColor: 'white'
+ * },
+ * scale: 8
+}
+ *
+ * @returns
  */
 function generateFeatureIcon (options) {
   return new Promise((resolve, reject) => {

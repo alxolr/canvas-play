@@ -1,8 +1,24 @@
 /* global ApplicationPrototype AndroidDevice Image $ logger GCUI OpenLayers */
 
 window.LOG_INACTIVE = true
-const SELECTED_FEATURE_COLOR = '#000000'
-const UNSELECTED_FEATURE_COLOR = '#000000'
+var featureOptions = {
+  iconUrl: null,
+  donut: {
+    size: 256,
+    color: 'black'
+  },
+  group: {
+    count: 3,
+    color: 'black',
+    textColor: 'white'
+  },
+  index: {
+    count: 1,
+    color: 'black',
+    textColor: 'white'
+  },
+  scale: 8
+}
 
 window.onerror = function (err, a, b) {
   if (typeof (App) === 'object') {
@@ -30,106 +46,6 @@ Android.bind('device', function () {
 // Application Structure
 
 var App = new ApplicationPrototype()
-
-/**
- * @param {Object} options
- * {
- *  url: String,
- *  groupSize: Number,
- *  index: Number,
- *  scale: Number,
- *  color: String
- * }
- */
-function generateFeatureIcon (options) {
-  return new Promise((resolve, reject) => {
-    drawDonut(200, options.color)
-      .then(canvas => insertIcon(canvas, options.url))
-      .then(canvas => drawGroupSize(canvas, options.groupSize, options.scale))
-      .then(canvas => drawIndex(canvas, options.index, options.scale))
-      .then(canvas => resolve(canvas))
-      .catch(err => reject(err))
-  })
-
-function insertIcon (canvas, url) {
-  return new Promise((resolve, reject) => {
-    resolve(canvas)
-  })
-}
-
-function drawDonut (size, color) {
-  return new Promise((resolve, reject) => {
-    var canvas = document.createElement('canvas')
-    var arc = size / 2
-    var ctx = canvas.getContext('2d')
-    ctx.mozImageSmoothingEnabled = true
-    ctx.webkitImageSmoothingEnabled = true
-    ctx.msImageSmoothingEnabled = true
-    ctx.imageSmoothingEnabled = true
-    canvas.width = size
-    canvas.height = size
-    ctx.beginPath()
-    ctx.arc(arc, arc, arc, 0, Math.PI * 2, false)
-    ctx.fillStyle = '#ffffff'
-    ctx.fill()
-    ctx.arc(arc, arc, arc * 0.75, 0, Math.PI * 2, true)
-    ctx.closePath()
-    ctx.fillStyle = color
-    ctx.fill()
-    resolve(canvas)
-  })
-}
-
-function drawGroupSize (canvas, size, scale) {
-  return new Promise((resolve, reject) => {
-    if (size > 1) {
-      var context = canvas.getContext('2d')
-      var radius = 7 * scale
-      var width = canvas.width
-      var height = canvas.height
-      var arcX = width / 2
-      var arcY = height / 2
-      var x = arcX
-      var y = arcY + radius / 2
-      context.mozImageSmoothingEnabled = true
-      context.webkitImageSmoothingEnabled = true
-      context.msImageSmoothingEnabled = true
-      context.imageSmoothingEnabled = true
-      context.beginPath()
-      context.strokeColor = 'black'
-      context.strokeSize = '2px'
-      context.arc(arcX, arcY, radius, 0, 2 * Math.PI, 0)
-      context.fill()
-      context.font = (11 * scale) + 'px tahoma'
-      context.textAlign = 'center'
-      context.fillStyle = 'white'
-      context.fillText(size, x, y)
-    }
-    resolve(canvas)
-  })
-}
-
-function drawIndex (canvas, index, ratioSize) {
-    return new Promise((resolve, reject) => {
-    var context = canvas.getContext('2d')
-    var x = canvas.width - 7 * ratioSize
-    var y = 11 * ratioSize
-    context.mozImageSmoothingEnabled = true
-    context.webkitImageSmoothingEnabled = true
-    context.msImageSmoothingEnabled = true
-    context.imageSmoothingEnabled = true
-    context.beginPath()
-    context.strokeColor = 'black'
-    context.strokeSize = '2px'
-    context.arc(canvas.width - 7 * ratioSize, 7 * ratioSize, 7 * ratioSize, 0, 2 * Math.PI, 0)
-    context.fill()
-    context.font = (11 * ratioSize) + 'px tahoma'
-    context.textAlign = 'center'
-    context.fillStyle = 'white'
-    context.fillText(index, x, y)
-    resolve(canvas)  
-  })
-}
 
 App.bind('Image', (function () {
   var app = new ApplicationPrototype()
@@ -559,18 +475,14 @@ function getMarkerIndex (id) {
           var size = initialSize * 1.5
           feature.style.graphicWidth = size
           feature.style.graphicHeight = size
-          generateFeatureIcon(null, text, text, size, (err, cvs) => {
-            if (err) handleError(err)
-          })
-
-          createIcon(200, SELECTED_FEATURE_COLOR, (err, cvs) => {
-            if (err) handleError(err)
-            App.Image().URL2Canvas(cvs.toDataURL(), size, function (canvas) {
-              App.Image().CanvasText(canvas, text, 6)
+          featureOptions.iconUrl = null
+          featureOptions.group.count = text
+          featureOptions.index.count = text
+          generateFeatureIcon(featureOptions)
+            .then((canvas) => {
               feature.style.externalGraphic = canvas.toDataURL()
               App.Map().getMarkersLayer().redraw()
             })
-          })
           App.log('log', 'On marker selected: ' + feature.attributes.id)
           Android.trigger('OnMarkerSelected', feature.attributes)
         },
@@ -581,14 +493,13 @@ function getMarkerIndex (id) {
           var size = initialSize * 2 / 3
           feature.style.graphicWidth = size
           feature.style.graphicHeight = size
-          createIcon(200, UNSELECTED_FEATURE_COLOR, (err, cvs) => {
-            if (err) handleError(err)
-            App.Image().URL2Canvas(cvs.toDataURL(), size, function (canvas) {
-              App.Image().CanvasText(canvas, text, 4)
+          featureOptions.group.count = text
+          featureOptions.index.count = text
+          generateFeatureIcon(featureOptions)
+            .then((canvas) => {
               feature.style.externalGraphic = canvas.toDataURL()
               App.Map().getMarkersLayer().redraw()
             })
-          })
           App.log('log', 'On marker unselected')
         }
       })
@@ -882,8 +793,141 @@ function extractRoutePoints (route) {
   return points
 }
 
-function handleError (err) {
-  console.log(err)
+/**
+ * Generate the icon
+ *
+ * @param {Object} options
+ *
+ * {
+ * iconUrl: 'sun.rays.small.png',
+ * donut: {
+ *   size: 256,
+ *   color: 'black'
+ * },
+ * group: {
+ *   count: 3,
+ *   color: 'black',
+ *   textColor: 'white'
+ * },
+ * index: {
+ *   count: 1,
+ *   color: 'black',
+ *   textColor: 'white'
+ * },
+ * scale: 8
+}
+ *
+ * @returns {Promise}
+ */
+function generateFeatureIcon (options) {
+  return new Promise((resolve, reject) => {
+    drawDonut(options.donut)
+      .then(canvas => insertIcon(canvas, options.iconUrl, options.group))
+      .then(canvas => drawGroupSize(canvas, options.group, options.scale))
+      .then(canvas => drawIndex(canvas, options.index, options.scale))
+      .then(canvas => resolve(canvas))
+      .catch(err => reject(err))
+  })
+}
+
+
+/**
+ * @param {Object} canvas
+ * @param {String} url
+ * @param {Object} group
+ *
+ * @returns {Promise}
+ */
+function insertIcon (canvas, url, group) {
+  return new Promise((resolve, reject) => {
+    if ((group.count <= 1) && (url !== null)) {
+      let context = canvas.getContext('2d')
+      let img = document.createElement('img')
+      img.src = url
+      img.onload = function () {
+        context.drawImage(img, 48, 48, 160, 160)
+        resolve(canvas)
+      }
+    } else {
+      resolve(canvas)
+    }
+  })
+}
+
+function drawDonut (donut) {
+  return new Promise((resolve, reject) => {
+    var canvas = document.createElement('canvas')
+    var arc = donut.size / 2
+    var ctx = canvas.getContext('2d')
+    ctx.mozImageSmoothingEnabled = true
+    ctx.webkitImageSmoothingEnabled = true
+    ctx.msImageSmoothingEnabled = true
+    ctx.imageSmoothingEnabled = true
+    canvas.width = donut.size
+    canvas.height = donut.size
+    ctx.beginPath()
+    ctx.arc(arc, arc, arc, 0, Math.PI * 2, false)
+    ctx.fillStyle = '#ffffff'
+    ctx.fill()
+    ctx.arc(arc, arc, arc * 0.75, 0, Math.PI * 2, true)
+    ctx.closePath()
+    ctx.fillStyle = donut.color
+    ctx.fill()
+    resolve(canvas)
+  })
+}
+
+function drawGroupSize (canvas, group, scale) {
+  return new Promise((resolve, reject) => {
+    if (group.count > 1) {
+      var context = canvas.getContext('2d')
+      var radius = 7 * scale
+      var width = canvas.width
+      var height = canvas.height
+      var arcX = width / 2
+      var arcY = height / 2
+      var x = arcX
+      var y = arcY + radius / 2
+      context.fillStyle = group.color
+      context.mozImageSmoothingEnabled = true
+      context.webkitImageSmoothingEnabled = true
+      context.msImageSmoothingEnabled = true
+      context.imageSmoothingEnabled = true
+      context.beginPath()
+      context.strokeColor = 'black'
+      context.strokeSize = '2px'
+      context.arc(arcX, arcY, radius, 0, 2 * Math.PI, 0)
+      context.fill()
+      context.font = (11 * scale) + 'px tahoma'
+      context.textAlign = 'center'
+      context.fillStyle = group.textColor
+      context.fillText(group.count, x, y)
+    }
+    resolve(canvas)
+  })
+}
+
+function drawIndex (canvas, index, ratioSize) {
+  return new Promise((resolve, reject) => {
+    var context = canvas.getContext('2d')
+    var x = canvas.width - 7 * ratioSize
+    var y = 11 * ratioSize
+    context.fillStyle = index.color
+    context.mozImageSmoothingEnabled = true
+    context.webkitImageSmoothingEnabled = true
+    context.msImageSmoothingEnabled = true
+    context.imageSmoothingEnabled = true
+    context.beginPath()
+    context.strokeColor = 'black'
+    context.strokeSize = '2px'
+    context.arc(canvas.width - 7 * ratioSize, 7 * ratioSize, 7 * ratioSize, 0, 2 * Math.PI, 0)
+    context.fill()
+    context.font = (11 * ratioSize) + 'px tahoma'
+    context.textAlign = 'center'
+    context.fillStyle = index.textColor
+    context.fillText(index.count, x, y)
+    resolve(canvas)
+  })
 }
 
 function drawLine (points, style) {
