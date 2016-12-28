@@ -1,3 +1,19 @@
+/* global Image */
+var featureOptions = {
+  iconUrl: 'ic_int_planned_32dp.png',
+  group: {
+    count: 0,
+    color: 'black',
+    textColor: 'white'
+  },
+  index: {
+    count: 1,
+    color: 'black',
+    textColor: 'white'
+  },
+  scale: 4
+}
+
 /**
  * Generate the icon
  *
@@ -40,15 +56,14 @@ function generateFeatureIcon (options) {
  */
 function insertIcon (canvas, url, group) {
   return new Promise((resolve, reject) => {
-    if ((url !== null)) {
-      let context = canvas.getContext('2d')
-      let img = document.createElement('img')
-      img.src = url
-      img.onload = function () {
-        context.drawImage(img, 0, 0, 128, 128)
-        resolve(canvas)
-      }
-    } else {
+    if (group.count > 1) {
+      url = featureOptions.iconUrl
+    }
+    var context = canvas.getContext('2d')
+    var img = new Image()
+    img.src = url
+    img.onload = function () {
+      context.drawImage(img, 0, 0, 128, 128)
       resolve(canvas)
     }
   })
@@ -59,7 +74,6 @@ function createCanvas (donut) {
     var canvas = document.createElement('canvas')
     canvas.width = 128
     canvas.height = 128
-
     resolve(canvas)
   })
 }
@@ -119,25 +133,11 @@ function clone (object) {
   return JSON.parse(JSON.stringify(object))
 }
 
-var configs = [1, 2, 3, 4, 5, 6, 4, 3, 4]
-
-var featureOptions = {
-  iconUrl: 'ic_int_planned_32dp.png',
-  group: {
-    count: 0,
-    color: 'black',
-    textColor: 'white'
-  },
-  index: {
-    count: 1,
-    color: 'black',
-    textColor: 'white'
-  },
-  scale: 4
-}
+var configs = [3, 3, 4, 1, 2]
 
 configs.forEach((config, index) => {
   var options = clone(featureOptions)
+  options.iconUrl = 'sun.rays.small.png'
   options.group.count = config
   options.index.count = index
   generateFeatureIcon(options)
