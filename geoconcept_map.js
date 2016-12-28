@@ -414,6 +414,31 @@ function getMarkerIndex (id) {
   return 0
 }
 
+function getFirstIndexInFeatureGroup (feature) {
+  var features = App.Map().getMarkersRaw()
+  var x = feature.geometry.x
+  var y = feature.geometry.y
+
+  for (var i = 0; i < features.length; i++) {
+    if (features[i].geometry.x === x && features[i].geometry.y === y) {
+      return i
+    }
+  }
+
+  return 1
+}
+
+function getFirstIndexInMarkersGroup (markers, marker) {
+  var location = marker.location
+  for (var i = 0; i < markers.length; i++) {
+    if (equal(markers[i].location, location)) {
+      return i
+    }
+  }
+
+  return 1
+}
+
 function countMarkerGroup (markers, id) {
   var marker = markers.filter(marker => marker.id === id)
   if (marker.length === 1) {
@@ -485,8 +510,13 @@ function countFeatureGroup (sf) {
       vectorLayer.events.on({
         featureselected: function (evt) {
           var feature = evt.feature
-          var index = getMarkerIndex(feature.attributes.id)
           var group = countFeatureGroup(feature)
+          var index
+          if (group > 1) {
+            index = getFirstIndexInFeatureGroup(feature)
+          } else {
+            index = getMarkerIndex(feature.attributes.id)
+          }
           if (index !== 0) {
             drawFeature(feature, 1.5, group, index)
           }
@@ -496,8 +526,13 @@ function countFeatureGroup (sf) {
 
         featureunselected: function (evt) {
           var feature = evt.feature
-          var index = getMarkerIndex(feature.attributes.id)
           var group = countFeatureGroup(feature)
+          var index
+          if (group > 1) {
+            index = getFirstIndexInFeatureGroup(feature)
+          } else {
+            index = getMarkerIndex(feature.attributes.id)
+          }
           if (index !== 0) {
             drawFeature(feature, 2 / 3, group, index)
           }
@@ -653,8 +688,12 @@ App.Map().bind('addMarkers', function (markers, index) {
     if (marker.iconText && marker.iconUrl) {
       var options = clone(featureOptions)
       options.iconUrl = marker.iconUrl
-      options.index.count = marker.iconText
       options.group.count = countMarkerGroup(markers, marker.id)
+      if (options.group.count > 1) {
+        options.index.count = getFirstIndexInMarkersGroup(markers, marker)
+      } else {
+        options.index.count = marker.iconText
+      }
       generateFeatureIcon(options)
         .then((canvas) => {
           feature.style.externalGraphic = canvas.toDataURL()
